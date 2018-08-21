@@ -16,7 +16,7 @@
 
 package cn.jinyahuan.lab.rank;
 
-import cn.jinyahuan.common.service.RedisService;
+import cn.jinyahuan.common.redis.component.impl.RedisComponent;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,7 +37,7 @@ import java.util.*;
  * @since 1.0.0
  */
 @Component
-public class RedisRankBoardLab {
+public class RedisRankLab {
     private static final String KEY_RANK_PREFIX = "rank:";
     private static final String KEY_TEMPLATE_RANK_OPERATION_COUNT = KEY_RANK_PREFIX + "%s:operationCount";
 
@@ -47,7 +47,7 @@ public class RedisRankBoardLab {
     public static final int DEFAULT_SCORE_DECIMAL_PLACES = 2;
 
     @Autowired
-    private RedisService redisService;
+    private RedisComponent redisComponent;
 
     // 分数相同时 后达标的排在前面
     public double saveRank(String rankName, String member, BigDecimal score) {
@@ -66,7 +66,7 @@ public class RedisRankBoardLab {
         BigDecimal additiveScore = score.setScale(DEFAULT_SCORE_DECIMAL_PLACES, RoundingMode.DOWN)
                 .add(weight);
 
-        return redisService.zIncrBy(key, member, additiveScore.doubleValue());
+        return redisComponent.zIncrBy(key, member, additiveScore.doubleValue());
     }
 
     public Double getScore(String rankName, String member) {
@@ -74,8 +74,12 @@ public class RedisRankBoardLab {
         if (Objects.isNull(key) || StringUtils.isEmpty(member)) {
             return 0d;
         }
-        Double score = redisService.zScore(key, member);
+        Double score = redisComponent.zScore(key, member);
         return Objects.isNull(score) ? 0d : score;
+    }
+
+    public Long getRank(String rankName, String member) {
+        return null;
     }
 
     /**
@@ -91,7 +95,7 @@ public class RedisRankBoardLab {
             return Collections.EMPTY_LIST;
         }
 
-        Set<RedisZSetCommands.Tuple> rank = redisService.zRevRangeWithScores(key, start - 1, end - 1);
+        Set<RedisZSetCommands.Tuple> rank = redisComponent.zRevRangeWithScores(key, start - 1, end - 1);
         if (Objects.nonNull(rank) && !rank.isEmpty()) {
             List<Map<String, Object>> resultList = new ArrayList<>(rank.size() + 1);
 
@@ -116,7 +120,7 @@ public class RedisRankBoardLab {
         if (Objects.isNull(key)) {
             return 0;
         }
-        String cacheNumber = redisService.get(key);
+        String cacheNumber = redisComponent.get(key);
         return NumberUtils.toLong(cacheNumber, 0);
     }
 
@@ -125,7 +129,7 @@ public class RedisRankBoardLab {
         if (Objects.isNull(key)) {
             return 0;
         }
-        return redisService.incr(key);
+        return redisComponent.incr(key);
     }
 
     /**

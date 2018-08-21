@@ -14,25 +14,12 @@
  * limitations under the License.
  */
 
-package cn.jinyahuan.common.service.impl;
-
-import cn.jinyahuan.common.BaseSpringIntegrationTest;
-import cn.jinyahuan.common.service.RedisService;
-import org.junit.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-
-import static org.junit.Assert.*;
+package cn.jinyahuan.common.redis.component;
 
 /**
  * @author JinYahuan
- * @since 1.0.0
+ * @since 0.1.0
  */
-public class RedisServiceImplTest extends BaseSpringIntegrationTest {
-    @Autowired
-    private RedisService redisService;
-
-    @Test
-    public void ping() {
-        assertEquals("PONG", redisService.ping());
-    }
+public interface RedisConnectionComponent {
+    String ping();
 }

@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package cn.jinyahuan.common.service.impl;
+package cn.jinyahuan.common.redis.component.impl;
 
-import cn.jinyahuan.common.service.RedisService;
+import cn.jinyahuan.common.redis.component.RedisSortedSetComponent;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.connection.RedisZSetCommands;
 import org.springframework.data.redis.core.RedisCallback;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.stereotype.Service;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Component;
 
 import java.util.Objects;
 import java.util.Set;
@@ -30,35 +30,18 @@ import java.util.Set;
  * @author JinYahuan
  * @since 1.0.0
  */
-@Service
-public class RedisServiceImpl implements RedisService {
+@Component
+public class RedisSortedSetComponentImpl implements RedisSortedSetComponent {
     @Autowired
-    private RedisTemplate redisTemplate;
+    private StringRedisTemplate stringRedisTemplate;
 
     @Override
-    public String ping() {
-        return (String) redisTemplate.execute((RedisCallback) connection ->
-                connection.ping()
-        );
-    }
-
-    @Override
-    public String get(String key) {
-        if (Objects.isNull(key)) {
+    public Boolean zAdd(String key, String member, double score) {
+        if (Boolean.logicalOr(Objects.isNull(key), Objects.isNull(member))) {
             return null;
         }
-        return (String) redisTemplate.execute((RedisCallback) connection -> {
-            byte[] temp = connection.get(key.getBytes());
-            return Objects.isNull(temp) ? null : new String(temp);
-        });
-    }
-
-    @Override
-    public Long incr(String key) {
-        if (Objects.isNull(key)) {
-            return null;
-        }
-        return (Long) redisTemplate.execute((RedisCallback) connection -> connection.incr(key.getBytes()));
+        return (Boolean) stringRedisTemplate.execute(
+                (RedisCallback) connection -> connection.zAdd(key.getBytes(), score, member.getBytes()));
     }
 
     @Override
@@ -66,7 +49,7 @@ public class RedisServiceImpl implements RedisService {
         if (Boolean.logicalOr(Objects.isNull(key), Objects.isNull(member))) {
             return null;
         }
-        return (Double) redisTemplate.execute(
+        return (Double) stringRedisTemplate.execute(
                 (RedisCallback) connection -> connection.zIncrBy(key.getBytes(), score, member.getBytes()));
     }
 
@@ -75,8 +58,17 @@ public class RedisServiceImpl implements RedisService {
         if (Boolean.logicalOr(Objects.isNull(key), Objects.isNull(member))) {
             return null;
         }
-        return (Double) redisTemplate.execute(
+        return (Double) stringRedisTemplate.execute(
                 (RedisCallback) connection -> connection.zScore(key.getBytes(), member.getBytes()));
+    }
+
+    @Override
+    public Long zRevrank(String key, String member) {
+        if (Boolean.logicalOr(Objects.isNull(key), Objects.isNull(member))) {
+            return null;
+        }
+        return (Long) stringRedisTemplate.execute(
+                (RedisCallback) connection -> connection.zRevRank(key.getBytes(), member.getBytes()));
     }
 
     @Override
@@ -84,7 +76,7 @@ public class RedisServiceImpl implements RedisService {
         if (Objects.isNull(key)) {
             return null;
         }
-        return (Set<RedisZSetCommands.Tuple>) redisTemplate.execute(
+        return (Set<RedisZSetCommands.Tuple>) stringRedisTemplate.execute(
                 (RedisCallback) connection -> connection.zRevRangeWithScores(key.getBytes(), start, stop));
     }
 }

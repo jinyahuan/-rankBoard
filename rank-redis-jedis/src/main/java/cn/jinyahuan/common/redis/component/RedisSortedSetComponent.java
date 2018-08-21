@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package cn.jinyahuan.common.service;
+package cn.jinyahuan.common.redis.component;
 
 import org.springframework.data.redis.connection.RedisZSetCommands;
 
@@ -22,18 +22,16 @@ import java.util.Set;
 
 /**
  * @author JinYahuan
- * @since 1.0.0
+ * @since 0.1.0
  */
-public interface RedisService {
-    String ping();
-
-    String get(String key);
-
-    Long incr(String key);
+public interface RedisSortedSetComponent {
+    Boolean zAdd(String key, String member, double score);
 
     Double zIncrBy(String key, String member, double score);
 
     Double zScore(String key, String member);
+
+    Long zRevrank(String key, String member);
 
     Set<RedisZSetCommands.Tuple> zRevRangeWithScores(String key, long start, long stop);
 }
