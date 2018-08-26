@@ -17,6 +17,7 @@
 package cn.jinyahuan.common.redis.component.impl;
 
 import cn.jinyahuan.common.redis.component.RedisConnectionComponent;
+import cn.jinyahuan.common.redis.component.RedisKeyComponent;
 import cn.jinyahuan.common.redis.component.RedisSortedSetComponent;
 import cn.jinyahuan.common.redis.component.RedisStringComponent;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,11 +33,15 @@ import java.util.Set;
 @Component
 public class RedisComponent {
     @Autowired
-    private RedisStringComponent redisStringComponent;
+    private RedisConnectionComponent redisConnectionComponent;
+    @Autowired
+    private RedisKeyComponent redisKeyComponent;
     @Autowired
     private RedisSortedSetComponent redisSortedSetComponent;
     @Autowired
-    private RedisConnectionComponent redisConnectionComponent;
+    private RedisStringComponent redisStringComponent;
+
+    // --- Strings
 
     public String get(String key) {
         return redisStringComponent.get(key);
@@ -45,6 +50,12 @@ public class RedisComponent {
     public Long incr(String key) {
         return redisStringComponent.incr(key);
     }
+
+    public Long incrBy(String key, long increment) {
+        return redisStringComponent.incrBy(key, increment);
+    }
+
+    // --- Sorted Sets
 
     public Double zIncrBy(String key, String member, double score) {
         return redisSortedSetComponent.zIncrBy(key, member, score);
@@ -61,6 +72,14 @@ public class RedisComponent {
     public Set<RedisZSetCommands.Tuple> zRevRangeWithScores(String key, long start, long stop) {
         return redisSortedSetComponent.zRevRangeWithScores(key, start, stop);
     }
+
+    // --- Keys
+
+    public Long del(String key) {
+        return redisKeyComponent.del(key);
+    }
+
+    // --- Connection
 
     public String ping() {
         return redisConnectionComponent.ping();

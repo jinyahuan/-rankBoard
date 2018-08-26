@@ -20,10 +20,6 @@ package cn.jinyahuan.common.redis.component;
  * @author JinYahuan
  * @since 0.1.0
  */
-public interface RedisStringComponent {
-    String get(String key);
-
-    Long incr(String key);
-
-    Long incrBy(String key, long increment);
+public interface RedisKeyComponent {
+    Long del(String key);
 }

@@ -38,6 +38,8 @@ import java.util.*;
  */
 @Component
 public class RedisRankLab {
+    // TODO 设计排序方式 JinYahuan
+
     private static final String KEY_RANK_PREFIX = "rank:";
     private static final String KEY_TEMPLATE_RANK_OPERATION_COUNT = KEY_RANK_PREFIX + "%s:operationCount";
 
@@ -48,6 +50,26 @@ public class RedisRankLab {
 
     @Autowired
     private RedisComponent redisComponent;
+
+    public long saveRank(String rankName, String memberName, Long score) {
+        String key = getRankKey(rankName);
+        if (Objects.isNull(key)) {
+            return 0;
+        }
+        if (StringUtils.isEmpty(memberName) || Objects.isNull(score)) {
+            return 0;
+        }
+
+        // 计算排行榜的排序权重
+        long rankOperationNumber = logRankOperationNumber(rankName);
+        BigDecimal weight = RankWeightUtils.computeWeightByDefaultDecimalPlaces(rankOperationNumber);
+
+        double additiveScore = weight.doubleValue() + score;
+
+        Double totalScore = redisComponent.zIncrBy(key, memberName, additiveScore);
+
+        return totalScore.longValue();
+    }
 
     // 分数相同时 后达标的排在前面
     public double saveRank(String rankName, String member, BigDecimal score) {
@@ -61,7 +83,7 @@ public class RedisRankLab {
 
         // 计算排行榜的排序权重
         long rankOperationNumber = logRankOperationNumber(rankName);
-        BigDecimal weight = computeWeightByDefaultDecimalPlaces(rankOperationNumber);
+        BigDecimal weight = RankWeightUtils.computeWeightByDefaultDecimalPlaces(rankOperationNumber);
 
         BigDecimal additiveScore = score.setScale(DEFAULT_SCORE_DECIMAL_PLACES, RoundingMode.DOWN)
                 .add(weight);
@@ -83,10 +105,9 @@ public class RedisRankLab {
     }
 
     /**
-     *
      * @param rankName
-     * @param start 查询的排行榜开始的名次，从1开始
-     * @param end 查询的排行榜结束的名次
+     * @param start    查询的排行榜开始的名次，从1开始
+     * @param end      查询的排行榜结束的名次
      * @return
      */
     public List<Map<String, Object>> getRank(String rankName, int start, int end) {
@@ -132,28 +153,7 @@ public class RedisRankLab {
         return redisComponent.incr(key);
     }
 
-    /**
-     * 计算排行榜的排序权重。实现原理：记录操作榜单的次数，然后根据 score 保存的有效小数位，计算出小一级的小数
-     *
-     * @param rankOperationNumber
-     * @return
-     */
-    private static BigDecimal computeWeightByDefaultDecimalPlaces(Long rankOperationNumber) {
-        if (rankOperationNumber <= 0) {
-            return BigDecimal.ZERO;
-        }
-
-        BigDecimal places = new BigDecimal(new Double(Math.pow(10, DEFAULT_SCORE_DECIMAL_PLACES + 1)).toString());
-        String sDecimalPlaces = BigDecimal.ONE.divide(places).stripTrailingZeros().toPlainString();
-        String decimalPlacesPrefix = sDecimalPlaces.substring(0, sDecimalPlaces.length() - 1);
-
-        BigDecimal weight = new BigDecimal(rankOperationNumber);
-        String sWeight = weight.toPlainString();
-
-        return new BigDecimal(decimalPlacesPrefix + sWeight);
-    }
-
-    private String getRankKey(String rankName) {
+    String getRankKey(String rankName) {
         if (StringUtils.isEmpty(rankName)) {
             return null;
         }

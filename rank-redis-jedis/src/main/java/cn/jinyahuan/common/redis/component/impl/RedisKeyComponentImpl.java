@@ -16,7 +16,7 @@
 
 package cn.jinyahuan.common.redis.component.impl;
 
-import cn.jinyahuan.common.redis.component.RedisStringComponent;
+import cn.jinyahuan.common.redis.component.RedisKeyComponent;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -29,34 +29,15 @@ import java.util.Objects;
  * @since 1.0.0
  */
 @Component
-public class RedisStringComponentImpl implements RedisStringComponent {
+public class RedisKeyComponentImpl implements RedisKeyComponent {
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
 
     @Override
-    public String get(String key) {
+    public Long del(String key) {
         if (Objects.isNull(key)) {
             return null;
         }
-        return (String) stringRedisTemplate.execute((RedisCallback) connection -> {
-            byte[] temp = connection.get(key.getBytes());
-            return Objects.isNull(temp) ? null : new String(temp);
-        });
-    }
-
-    @Override
-    public Long incr(String key) {
-        if (Objects.isNull(key)) {
-            return null;
-        }
-        return (Long) stringRedisTemplate.execute((RedisCallback) connection -> connection.incr(key.getBytes()));
-    }
-
-    @Override
-    public Long incrBy(String key, long increment) {
-        if (Objects.isNull(key)) {
-            return null;
-        }
-        return (Long) stringRedisTemplate.execute((RedisCallback) connection -> connection.incrBy(key.getBytes(), increment));
+        return (Long) stringRedisTemplate.execute((RedisCallback) connection -> connection.del(key.getBytes()));
     }
 }
