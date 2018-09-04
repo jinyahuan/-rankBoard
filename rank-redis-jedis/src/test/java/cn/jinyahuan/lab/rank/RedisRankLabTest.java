@@ -22,6 +22,11 @@ import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -31,35 +36,129 @@ public class RedisRankLabTest extends BaseSpringIntegrationTest {
     @Autowired
     private RedisRankLab redisRankLab;
     @Autowired
+    private RankWeightComponent rankWeightComponent;
+    @Autowired
     private RedisComponent redisComponent;
 
     @Test
-    public void saveRank() {
-        String rankName = "test";
-        String rankKey = redisRankLab.getRankKey(rankName);
-        String rankOptKey = redisRankLab.getRankOperationNumberKey(rankName);
+    public void testSaveRankByLong() {
+        final String rankName = "saveRankByLong";
+        final String rankKey = redisRankLab.getRankKey(rankName);
+        final String rankOptKey = rankWeightComponent.getRankOperationNumberKey(rankName);
+        final int faultDecimalPlaces = 2;
+        final long score = 100L;
 
         redisComponent.del(rankKey);
         redisComponent.del(rankOptKey);
-
-        BigDecimal score = new BigDecimal("100");
 
         String memberName1 = "jin_1";
-        redisRankLab.saveRank(rankName, memberName1, score);
+        LocalDateTime dateTime = LocalDateTime.now();
+        BigDecimal weight1 = RankWeightUtils.computeWeight(dateTime.toInstant(ZoneId.systemDefault().getRules().getOffset(dateTime)).toEpochMilli(), faultDecimalPlaces);
+        assertEquals(score, redisRankLab.saveRank(rankName, memberName1, score, weight1));
+        redisComponent.del(rankKey);
 
         String memberName2 = "jin_2";
-        assertEquals(new Long(9), redisComponent.incrBy(rankOptKey, 8));
-        redisRankLab.saveRank(rankName, memberName2, score);
-
-        String memberName3 = "jin_3";
-        assertEquals(new Long(99), redisComponent.incrBy(rankOptKey, 89));
-        redisRankLab.saveRank(rankName, memberName3, score);
-
-        List<Map<String, Object>> rankList = redisRankLab.getRank(rankName, 1, 10);
-        String result = "[{member=jin_3, score=100.10}, {member=jin_2, score=100.10}, {member=jin_1, score=100.10}]";
-        assertEquals(result, rankList + "");
+        long rankOptNum = rankWeightComponent.logRankOperationNumber(rankName);
+        BigDecimal weight2 = RankWeightUtils.computeWeight(rankOptNum, faultDecimalPlaces);
+        assertEquals(score, redisRankLab.saveRank(rankName, memberName2, score, weight2));
 
         redisComponent.del(rankKey);
         redisComponent.del(rankOptKey);
+    }
+
+    @Test
+    public void testSaveRankByDouble() {
+        final String rankName = "saveRankByDouble";
+        final String rankKey = redisRankLab.getRankKey(rankName);
+        final String rankOptKey = rankWeightComponent.getRankOperationNumberKey(rankName);
+        final int faultDecimalPlaces = 2;
+        final double score = 100.01;
+
+        redisComponent.del(rankKey);
+        redisComponent.del(rankOptKey);
+
+        String memberName1 = "jin_1";
+        LocalDateTime dateTime = LocalDateTime.now();
+        BigDecimal weight1 = RankWeightUtils.computeWeight(dateTime.toInstant(ZoneId.systemDefault().getRules().getOffset(dateTime)).toEpochMilli(), faultDecimalPlaces);
+        assertEquals(score, redisRankLab.saveRank(rankName, memberName1, score, weight1), Math.pow(10, faultDecimalPlaces + 1));
+        redisComponent.del(rankKey);
+
+        String memberName2 = "jin_2";
+        long rankOptNum = rankWeightComponent.logRankOperationNumber(rankName);
+        BigDecimal weight2 = RankWeightUtils.computeWeight(rankOptNum, faultDecimalPlaces);
+        assertEquals(score, redisRankLab.saveRank(rankName, memberName2, score, weight2), Math.pow(10, faultDecimalPlaces + 1));
+
+        redisComponent.del(rankKey);
+        redisComponent.del(rankOptKey);
+    }
+
+    @Test
+    public void testGetRankScore() {
+        String rankName = "rankScore";
+        String rankKey = redisRankLab.getRankKey(rankName);
+        String memberName = "jin_score";
+        String rankOptKey = rankWeightComponent.getRankOperationNumberKey(rankName);
+
+        redisComponent.del(rankKey);
+        redisComponent.del(rankOptKey);
+
+        assertEquals(new Double(-1), redisRankLab.getRankScore(rankName, memberName));
+    }
+
+    @Test
+    public void testGetRankNumber() {
+        String rankName = "rankNumber";
+        String rankKey = redisRankLab.getRankKey(rankName);
+        String memberName = "jin_number";
+        String rankOptKey = rankWeightComponent.getRankOperationNumberKey(rankName);
+
+        redisComponent.del(rankKey);
+        redisComponent.del(rankOptKey);
+
+        assertEquals(new Long(-1), redisRankLab.getRankNumber(rankName, memberName));
+    }
+
+    @Test
+    public void testGetRanks() {
+        assertEquals(Collections.EMPTY_LIST, redisRankLab.getRanks(null, 1, 10));
+
+        final String rankName = "ranks";
+        final String rankKey = redisRankLab.getRankKey(rankName);
+        final String rankOptKey = rankWeightComponent.getRankOperationNumberKey(rankName);
+        final int faultDecimalPlaces = 2;
+        final long score = 100L;
+
+        redisComponent.del(rankKey);
+        redisComponent.del(rankOptKey);
+
+        String memberName1 = "jin_1";
+        long rankOptNum1 = rankWeightComponent.logRankOperationNumber(rankName);
+        BigDecimal weight1 = RankWeightUtils.computeWeight(rankOptNum1, faultDecimalPlaces);
+        redisRankLab.saveRank(rankName, memberName1, score, weight1);
+
+        String memberName2 = "jin_2";
+        long rankOptNum2 = rankWeightComponent.logRankOperationNumber(rankName);
+        BigDecimal weight2 = RankWeightUtils.computeWeight(rankOptNum2, faultDecimalPlaces);
+        redisRankLab.saveRank(rankName, memberName2, score, weight2);
+
+        String memberName3 = "jin_3";
+        long rankOptNum3 = rankWeightComponent.logRankOperationNumber(rankName);
+        BigDecimal weight3 = RankWeightUtils.computeWeight(rankOptNum3, faultDecimalPlaces);
+        redisRankLab.saveRank(rankName, memberName3, score, weight3);
+
+        assertEquals(
+                "[{member=jin_3, score=100.00}, {member=jin_2, score=100.00}, {member=jin_1, score=100.00}]",
+                redisRankLab.getRanks(rankName, 1, 10) + "");
+
+        redisComponent.del(rankKey);
+        redisComponent.del(rankOptKey);
+    }
+
+    @Test
+    public void testGetRankKey() {
+        assertEquals(null, RedisRankLab.getRankKey(null));
+        assertEquals(null, RedisRankLab.getRankKey(""));
+
+        assertEquals("rank:age", RedisRankLab.getRankKey("age"));
     }
 }
