@@ -47,6 +47,10 @@ public class RedisComponent {
         return redisStringComponent.get(key);
     }
 
+    public void set(String key, String value) {
+        redisStringComponent.set(key, value);
+    }
+
     public Long incr(String key) {
         return redisStringComponent.incr(key);
     }

@@ -18,19 +18,16 @@ package cn.jinyahuan.lab.rank;
 
 import cn.jinyahuan.common.BaseSpringIntegrationTest;
 import cn.jinyahuan.common.redis.component.impl.RedisComponent;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.util.Collections;
-import java.util.List;
-import java.util.Map;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 public class RedisRankLabTest extends BaseSpringIntegrationTest {
     @Autowired
@@ -41,52 +38,66 @@ public class RedisRankLabTest extends BaseSpringIntegrationTest {
     private RedisComponent redisComponent;
 
     @Test
-    public void testSaveRankByLong() {
+    public void testJoinRank() {
         final String rankName = "saveRankByLong";
         final String rankKey = redisRankLab.getRankKey(rankName);
-        final String rankOptKey = rankWeightComponent.getRankOperationNumberKey(rankName);
+        final String rankOptKey = rankWeightComponent.getKey(rankName);
         final int faultDecimalPlaces = 2;
-        final long score = 100L;
+        final Long score = Long.valueOf(100);
 
         redisComponent.del(rankKey);
         redisComponent.del(rankOptKey);
 
         String memberName1 = "jin_1";
         LocalDateTime dateTime = LocalDateTime.now();
-        BigDecimal weight1 = RankWeightUtils.computeWeight(dateTime.toInstant(ZoneId.systemDefault().getRules().getOffset(dateTime)).toEpochMilli(), faultDecimalPlaces);
-        assertEquals(score, redisRankLab.saveRank(rankName, memberName1, score, weight1));
+        BigDecimal finalWeight1 = RankWeightUtils.computeWeight(dateTime.toInstant(ZoneId.systemDefault().getRules().getOffset(dateTime)).toEpochMilli(), faultDecimalPlaces);
+        assertEquals(score, redisRankLab.joinRank(rankName, memberName1, score, finalWeight1));
         redisComponent.del(rankKey);
 
         String memberName2 = "jin_2";
-        long rankOptNum = rankWeightComponent.logRankOperationNumber(rankName);
-        BigDecimal weight2 = RankWeightUtils.computeWeight(rankOptNum, faultDecimalPlaces);
-        assertEquals(score, redisRankLab.saveRank(rankName, memberName2, score, weight2));
+        long weight = rankWeightComponent.offer(rankName);
+        BigDecimal finalWeight2 = RankWeightUtils.computeWeight(weight, faultDecimalPlaces);
+        assertEquals(score, redisRankLab.joinRank(rankName, memberName2, score, finalWeight2));
 
         redisComponent.del(rankKey);
         redisComponent.del(rankOptKey);
     }
 
+    @Ignore
     @Test
-    public void testSaveRankByDouble() {
-        final String rankName = "saveRankByDouble";
+    public void testRankNo() {
+        final String rankName = "testSameScoreRankNo";
         final String rankKey = redisRankLab.getRankKey(rankName);
-        final String rankOptKey = rankWeightComponent.getRankOperationNumberKey(rankName);
-        final int faultDecimalPlaces = 2;
-        final double score = 100.01;
+        final String rankOptKey = rankWeightComponent.getKey(rankName);
+        final Long score = 1L << 52;
 
         redisComponent.del(rankKey);
         redisComponent.del(rankOptKey);
 
-        String memberName1 = "jin_1";
-        LocalDateTime dateTime = LocalDateTime.now();
-        BigDecimal weight1 = RankWeightUtils.computeWeight(dateTime.toInstant(ZoneId.systemDefault().getRules().getOffset(dateTime)).toEpochMilli(), faultDecimalPlaces);
-        assertEquals(score, redisRankLab.saveRank(rankName, memberName1, score, weight1), Math.pow(10, faultDecimalPlaces + 1));
-        redisComponent.del(rankKey);
+        final long initWeightValue = 1L << 62;
+        rankWeightComponent.init(rankName, initWeightValue);
+        assertEquals(initWeightValue, rankWeightComponent.peek(rankName));
 
-        String memberName2 = "jin_2";
-        long rankOptNum = rankWeightComponent.logRankOperationNumber(rankName);
-        BigDecimal weight2 = RankWeightUtils.computeWeight(rankOptNum, faultDecimalPlaces);
-        assertEquals(score, redisRankLab.saveRank(rankName, memberName2, score, weight2), Math.pow(10, faultDecimalPlaces + 1));
+        final int testCount = 100;
+        final int memberCount = 5;
+        for (int i = 0; i < testCount; i++) {
+            if (i == 0) {
+                for (int j = 0; j < memberCount; j++) {
+                    long weight = rankWeightComponent.offer(rankName);
+                    BigDecimal finalWeight = RankWeightUtils.computeWeight(weight, 1);
+                    redisRankLab.joinRank(rankName, "m" + j, score, finalWeight);
+                }
+            }
+            else {
+                for (int j = 0; j < memberCount; j++) {
+                    long rankOptNum = rankWeightComponent.offer(rankName);
+                    BigDecimal finalWeight = RankWeightUtils.computeWeight(rankOptNum, 1);
+                    redisRankLab.joinRank(rankName, "m" + j, 1, finalWeight);
+                }
+            }
+
+            System.out.println(redisRankLab.getRanks(rankName, 1, 10));
+        }
 
         redisComponent.del(rankKey);
         redisComponent.del(rankOptKey);
@@ -97,12 +108,12 @@ public class RedisRankLabTest extends BaseSpringIntegrationTest {
         String rankName = "rankScore";
         String rankKey = redisRankLab.getRankKey(rankName);
         String memberName = "jin_score";
-        String rankOptKey = rankWeightComponent.getRankOperationNumberKey(rankName);
+        String rankOptKey = rankWeightComponent.getKey(rankName);
 
         redisComponent.del(rankKey);
         redisComponent.del(rankOptKey);
 
-        assertEquals(new Double(-1), redisRankLab.getRankScore(rankName, memberName));
+        assertEquals(null, redisRankLab.getRankScore(rankName, memberName));
     }
 
     @Test
@@ -110,7 +121,7 @@ public class RedisRankLabTest extends BaseSpringIntegrationTest {
         String rankName = "rankNumber";
         String rankKey = redisRankLab.getRankKey(rankName);
         String memberName = "jin_number";
-        String rankOptKey = rankWeightComponent.getRankOperationNumberKey(rankName);
+        String rankOptKey = rankWeightComponent.getKey(rankName);
 
         redisComponent.del(rankKey);
         redisComponent.del(rankOptKey);
@@ -124,7 +135,7 @@ public class RedisRankLabTest extends BaseSpringIntegrationTest {
 
         final String rankName = "ranks";
         final String rankKey = redisRankLab.getRankKey(rankName);
-        final String rankOptKey = rankWeightComponent.getRankOperationNumberKey(rankName);
+        final String rankOptKey = rankWeightComponent.getKey(rankName);
         final int faultDecimalPlaces = 2;
         final long score = 100L;
 
@@ -132,19 +143,19 @@ public class RedisRankLabTest extends BaseSpringIntegrationTest {
         redisComponent.del(rankOptKey);
 
         String memberName1 = "jin_1";
-        long rankOptNum1 = rankWeightComponent.logRankOperationNumber(rankName);
+        long rankOptNum1 = rankWeightComponent.offer(rankName);
         BigDecimal weight1 = RankWeightUtils.computeWeight(rankOptNum1, faultDecimalPlaces);
-        redisRankLab.saveRank(rankName, memberName1, score, weight1);
+        redisRankLab.joinRank(rankName, memberName1, score, weight1);
 
         String memberName2 = "jin_2";
-        long rankOptNum2 = rankWeightComponent.logRankOperationNumber(rankName);
+        long rankOptNum2 = rankWeightComponent.offer(rankName);
         BigDecimal weight2 = RankWeightUtils.computeWeight(rankOptNum2, faultDecimalPlaces);
-        redisRankLab.saveRank(rankName, memberName2, score, weight2);
+        redisRankLab.joinRank(rankName, memberName2, score, weight2);
 
         String memberName3 = "jin_3";
-        long rankOptNum3 = rankWeightComponent.logRankOperationNumber(rankName);
+        long rankOptNum3 = rankWeightComponent.offer(rankName);
         BigDecimal weight3 = RankWeightUtils.computeWeight(rankOptNum3, faultDecimalPlaces);
-        redisRankLab.saveRank(rankName, memberName3, score, weight3);
+        redisRankLab.joinRank(rankName, memberName3, score, weight3);
 
         assertEquals(
                 "[{member=jin_3, score=100.00}, {member=jin_2, score=100.00}, {member=jin_1, score=100.00}]",
@@ -156,9 +167,42 @@ public class RedisRankLabTest extends BaseSpringIntegrationTest {
 
     @Test
     public void testGetRankKey() {
-        assertEquals(null, RedisRankLab.getRankKey(null));
-        assertEquals(null, RedisRankLab.getRankKey(""));
+        assertEquals("rank:null", RedisRankLab.getRankKey(null));
+        assertEquals("rank:", RedisRankLab.getRankKey(""));
 
         assertEquals("rank:age", RedisRankLab.getRankKey("age"));
+    }
+
+    @Test
+    public void testGetScoreWeight() {
+        assertEquals(0, RedisRankLab.getScoreWeight(null), 0);
+        assertEquals(0, RedisRankLab.getScoreWeight(0d), 0);
+        assertEquals(0, RedisRankLab.getScoreWeight(1d), 0);
+
+        final int floatTestCount = 16;
+        for (int i = 1; i <= floatTestCount; i++) {
+            // 浮点数
+            final double score_f1 = BigDecimal.ONE.movePointLeft(i).doubleValue();
+            final double score_f9 = BigDecimal.ONE.subtract(BigDecimal.ONE.movePointLeft(i)).doubleValue();
+            try {
+                assertEquals(score_f1, RedisRankLab.getScoreWeight(score_f1), 0);
+                assertEquals(score_f9, RedisRankLab.getScoreWeight(score_f9), 0);
+            } catch (Throwable ex) {
+                System.out.println(i + " score_1=" + score_f1 + " score_f9=" + score_f9);
+                throw ex;
+            }
+        }
+
+        final int integerTestCount = 18;
+        for (int i = 1; i <= integerTestCount; i++) {
+            // 浮点整数
+            final double score_i9 = BigDecimal.ONE.movePointRight(i).subtract(BigDecimal.ONE).doubleValue();
+            try {
+                assertEquals(0, RedisRankLab.getScoreWeight(score_i9), 0);
+            } catch (Throwable ex) {
+                System.out.println(i + " score_i9=" + score_i9);
+                throw ex;
+            }
+        }
     }
 }

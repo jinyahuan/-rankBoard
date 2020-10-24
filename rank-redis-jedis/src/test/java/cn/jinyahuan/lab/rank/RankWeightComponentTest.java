@@ -32,15 +32,15 @@ public class RankWeightComponentTest extends BaseSpringIntegrationTest {
     @Test
     public void testGetRankOperationNumber() {
         String rankName1 = "rankOpt";
-        String rankOperationNumberKey1 = RankWeightComponent.getRankOperationNumberKey(rankName1);
+        String rankOperationNumberKey1 = RankWeightComponent.getKey(rankName1);
         redisComponent.del(rankOperationNumberKey1);
-        assertEquals(0, rankWeightComponent.getRankOperationNumber(null));
-        assertEquals(0, rankWeightComponent.getRankOperationNumber(""));
+        assertEquals(0, rankWeightComponent.peek(null));
+        assertEquals(0, rankWeightComponent.peek(""));
 
-        assertEquals(0, rankWeightComponent.getRankOperationNumber(rankName1));
+        assertEquals(0, rankWeightComponent.peek(rankName1));
 
         redisComponent.incrBy(rankOperationNumberKey1, 100);
-        assertEquals(100, rankWeightComponent.getRankOperationNumber(rankName1));
+        assertEquals(100, rankWeightComponent.peek(rankName1));
 
         redisComponent.del(rankOperationNumberKey1);
     }
@@ -48,20 +48,20 @@ public class RankWeightComponentTest extends BaseSpringIntegrationTest {
     @Test
     public void testLogRankOperationNumber() {
         String rankName1 = "logRankOpt";
-        String rankOperationNumberKey1 = RankWeightComponent.getRankOperationNumberKey(rankName1);
+        String rankOperationNumberKey1 = RankWeightComponent.getKey(rankName1);
         redisComponent.del(rankOperationNumberKey1);
-        assertEquals(0, rankWeightComponent.logRankOperationNumber(null));
-        assertEquals(0, rankWeightComponent.logRankOperationNumber(""));
-        assertEquals(1, rankWeightComponent.logRankOperationNumber(rankName1));
-        assertEquals(2, rankWeightComponent.logRankOperationNumber(rankName1));
-        assertEquals(3, rankWeightComponent.logRankOperationNumber(rankName1));
+        assertEquals(0, rankWeightComponent.offer(null));
+        assertEquals(0, rankWeightComponent.offer(""));
+        assertEquals(1, rankWeightComponent.offer(rankName1));
+        assertEquals(2, rankWeightComponent.offer(rankName1));
+        assertEquals(3, rankWeightComponent.offer(rankName1));
         redisComponent.del(rankOperationNumberKey1);
     }
 
     @Test
     public void testGetRankOperationNumberKey() {
-        assertEquals(null, RankWeightComponent.getRankOperationNumberKey(null));
-        assertEquals(null, RankWeightComponent.getRankOperationNumberKey(""));
-        assertEquals("rank:age:operationCount", RankWeightComponent.getRankOperationNumberKey("age"));
+        assertEquals(null, RankWeightComponent.getKey(null));
+        assertEquals(null, RankWeightComponent.getKey(""));
+        assertEquals("rank:age:operationCount", RankWeightComponent.getKey("age"));
     }
 }

@@ -45,6 +45,17 @@ public class RedisStringComponentImpl implements RedisStringComponent {
     }
 
     @Override
+    public void set(String key, String value) {
+        if (Objects.isNull(key) || Objects.isNull(value)) {
+            return;
+        }
+        stringRedisTemplate.execute((RedisCallback) connection -> {
+            connection.set(key.getBytes(), value.getBytes());
+            return null;
+        });
+    }
+
+    @Override
     public Long incr(String key) {
         if (Objects.isNull(key)) {
             return null;

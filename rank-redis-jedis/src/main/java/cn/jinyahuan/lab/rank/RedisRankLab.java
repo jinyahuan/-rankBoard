@@ -41,39 +41,36 @@ public class RedisRankLab {
     @Autowired
     private RedisComponent redisComponent;
 
-    public long saveRank(String rankName, String memberName, Long score, BigDecimal weight) {
-        String key = getRankKey(rankName);
-        if (Objects.isNull(key)) {
-            return 0;
+    /**
+     * <p>由于 zset 中 score 是以双精度的浮点数存储，相当于 java 中的{@link Double}。
+     * <p>所以当{@code score}值过大时，分值会变得不太精确，且权重也会变得不稳定（即同分值排名），建议不大于{@code 1L << 52}。
+     * <p>所以当{@code weight}数值过大时，可能会进入到分值，建议保留第一位精度(0.0xxx...)，也就是实际精度的设置比待设置的精度大1。
+     * <p>所以当{@code weight}位数过多时，可能会丢失进度，从而导致权重变得不稳定（即同分值排名），建议不大于{@code 1L << 61}。
+     *
+     * @param rankName
+     * @param memberName
+     * @param score      分值
+     * @param weight     同分时排名的权重，值为大于0且小于1的小数
+     * @return 上一次的分值：
+     * {@code null}, if rank not exist or {@code member} not in rank;
+     * otherwise return {@code member} real rank score
+     */
+    public Long joinRank(String rankName, String memberName, long score, BigDecimal weight) {
+        checkParamsForJoinRank(rankName, memberName, score, weight);
+
+        final String rankKey = getRankKey(rankName);
+
+        // 需要加上的分值（真实分值+权重值）
+        BigDecimal additiveScore = BigDecimal.valueOf(score).add(weight);
+
+        final double oldScoreWeight = getScoreWeight(getRankScore(rankName, memberName));
+        // 扣除上一次的分值的权重
+        if (oldScoreWeight > 0) {
+            additiveScore = additiveScore.subtract(BigDecimal.valueOf(oldScoreWeight));
         }
-        if (StringUtils.isEmpty(memberName)
-                || Objects.isNull(score)
-                || (Objects.isNull(weight) || weight.compareTo(BigDecimal.ZERO) < 0)) {
-            return 0;
-        }
 
-        double additiveScore = weight.doubleValue() + score;
-
-        Double totalScore = redisComponent.zIncrBy(key, memberName, additiveScore);
-        return totalScore.longValue();
-    }
-
-    public double saveRank(String rankName, String memberName, Double score, BigDecimal weight) {
-        String key = getRankKey(rankName);
-        if (Objects.isNull(key)) {
-            return 0d;
-        }
-        if (StringUtils.isEmpty(memberName)
-                || Objects.isNull(score)
-                || (Objects.isNull(weight) || weight.compareTo(BigDecimal.ZERO) < 0)) {
-            return 0d;
-        }
-
-        BigDecimal additiveScore = new BigDecimal(score.toString())
-                .setScale(RankWeightUtils.getDefaultDecimalPlaces(), DEFAULT_ROUNDING_MODE)
-                .add(weight);
-
-        return redisComponent.zIncrBy(key, memberName, additiveScore.doubleValue());
+        Double totalScore = redisComponent.zIncrBy(rankKey, memberName, additiveScore.doubleValue());
+        return Objects.isNull(totalScore) ? null : totalScore.longValue();
     }
 
     /**
@@ -82,20 +79,16 @@ public class RedisRankLab {
      * 注意：有个副作用，当 score 为负数时，返回 0。
      * </p>
      *
-     * @param rankName null return null
-     * @param member   null or empty return null
-     * @return {@code null}, if params is null; {@code -1}, if rank not exist or {@code member} not in rank;
-     * otherwise return {@code member} real rank score
+     * @param rankName   null return null
+     * @param memberName null or empty return null
+     * @return {@code null}, if rank not exist or {@code member} not in rank list;
+     * otherwise return {@code member} rank score
+     * @throws NullPointerException
      */
-    public Double getRankScore(String rankName, String member) {
-        String key = getRankKey(rankName);
-        if (Objects.isNull(key) || StringUtils.isEmpty(member)) {
-            return null;
-        }
-        Double score = redisComponent.zScore(key, member);
-        return Objects.isNull(score)
-                ? -1
-                : score > 0 ? score : 0;
+    public Double getRankScore(String rankName, String memberName) {
+        Objects.requireNonNull(rankName, "rankName must not be null");
+        Objects.requireNonNull(memberName, "memberName must not be null");
+        return redisComponent.zScore(getRankKey(rankName), memberName);
     }
 
     /**
@@ -144,15 +137,48 @@ public class RedisRankLab {
             }
             return resultList;
 
-        } else {
+        }
+        else {
             return Collections.EMPTY_LIST;
         }
     }
 
     static String getRankKey(String rankName) {
-        if (StringUtils.isEmpty(rankName)) {
-            return null;
-        }
         return KEY_RANK_PREFIX + rankName;
+    }
+
+    /**
+     * @param rankName
+     * @param memberName
+     * @param score
+     * @param weight
+     * @throws NullPointerException
+     * @throws IllegalArgumentException
+     */
+    static void checkParamsForJoinRank(String rankName, String memberName, long score, BigDecimal weight) {
+        Objects.requireNonNull(rankName, "rankName must not be null");
+        Objects.requireNonNull(memberName, "memberName must not be null");
+        Objects.requireNonNull(weight, "weight must not be null");
+
+        final double dWeight = weight.doubleValue();
+        if (!((dWeight > 0 && dWeight < 1) || (dWeight < 0 && dWeight > -1))) {
+            throw new IllegalArgumentException("weight value range must in [-1 < weight < 1]");
+        }
+    }
+
+    /**
+     * 获取分值中的权重值。
+     *
+     * @param rankScore
+     * @return
+     */
+    static double getScoreWeight(Double rankScore) {
+        double diff = 0;
+        if (Objects.nonNull(rankScore) && rankScore != 0) {
+            final double oldRankScoreTemp = Math.abs(rankScore);
+            // 权重
+            diff = oldRankScoreTemp - (long) oldRankScoreTemp;
+        }
+        return diff;
     }
 }

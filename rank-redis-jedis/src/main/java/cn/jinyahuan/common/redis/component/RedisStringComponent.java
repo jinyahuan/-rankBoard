@@ -23,6 +23,8 @@ package cn.jinyahuan.common.redis.component;
 public interface RedisStringComponent {
     String get(String key);
 
+    void set(String key, String value);
+
     Long incr(String key);
 
     Long incrBy(String key, long increment);

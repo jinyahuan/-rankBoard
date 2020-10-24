@@ -17,8 +17,6 @@
 package cn.jinyahuan.lab.rank;
 
 import cn.jinyahuan.common.redis.component.impl.RedisComponent;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.math.NumberUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -30,32 +28,56 @@ import java.util.Objects;
  */
 @Component
 public class RankWeightComponent {
-    static final String KEY_TEMPLATE_RANK_OPERATION_COUNT = RedisRankLab.KEY_RANK_PREFIX + "%s:operationCount";
+    static final String KEY_TEMPLATE_WEIGHT = RedisRankLab.KEY_RANK_PREFIX + "%s:weight";
 
     @Autowired
     private RedisComponent redisComponent;
 
-    public long getRankOperationNumber(String rankName) {
-        String key = getRankOperationNumberKey(rankName);
-        if (Objects.isNull(key)) {
-            return 0;
-        }
-        String cacheNumber = redisComponent.get(key);
-        return NumberUtils.toLong(cacheNumber, 0);
+    /**
+     * 检视当前的权重值。
+     *
+     * @param rankName
+     * @return
+     */
+    public long peek(String rankName) {
+        Objects.requireNonNull(rankName, "rankName must not be null");
+        String cachedValue = redisComponent.get(getKey(rankName));
+        return safeToLong(cachedValue, 0);
     }
 
-    public long logRankOperationNumber(String rankName) {
-        String key = getRankOperationNumberKey(rankName);
-        if (Objects.isNull(key)) {
-            return 0;
-        }
-        return redisComponent.incr(key);
+    /**
+     * 重新初始化权重值。
+     *
+     * @param rankName
+     * @param initValue
+     * @return
+     */
+    public void init(String rankName, long initValue) {
+        redisComponent.set(getKey(rankName), String.valueOf(initValue));
     }
 
-    static String getRankOperationNumberKey(String rankName) {
-        if (StringUtils.isEmpty(rankName)) {
-            return null;
+    /**
+     * 提供一个权重值。
+     *
+     * @param rankName
+     * @return
+     */
+    public long offer(String rankName) {
+        return redisComponent.incr(getKey(rankName));
+    }
+
+    static String getKey(String rankName) {
+        return String.format(KEY_TEMPLATE_WEIGHT, rankName);
+    }
+
+    static long safeToLong(String str, long defaultValue) {
+        if (Objects.isNull(str)) {
+            return defaultValue;
         }
-        return String.format(KEY_TEMPLATE_RANK_OPERATION_COUNT, rankName);
+        try {
+            return Long.parseLong(str);
+        } catch (Throwable ex) {
+            return defaultValue;
+        }
     }
 }
