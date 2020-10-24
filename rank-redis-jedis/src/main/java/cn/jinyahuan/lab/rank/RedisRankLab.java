@@ -169,9 +169,17 @@ public class RedisRankLab {
         Objects.requireNonNull(weight, "weight must not be null");
 
         final double dWeight = weight.doubleValue();
-        if (!((dWeight >= 0 && dWeight < 1) || (dWeight < 0 && dWeight > -1))) {
+        if (!(rangeIncludeZeroAndExcludeOne(dWeight) || rangeExcludeNegativeOneAndIncludeZero(dWeight))) {
             throw new IllegalArgumentException("weight value range must in [-1 < weight < 1]");
         }
+    }
+
+    static boolean rangeIncludeZeroAndExcludeOne(double num) {
+        return (num >= 0 && num < 1);
+    }
+
+    static boolean rangeExcludeNegativeOneAndIncludeZero(double num) {
+        return (num > -1 && num <= 0);
     }
 
     /**

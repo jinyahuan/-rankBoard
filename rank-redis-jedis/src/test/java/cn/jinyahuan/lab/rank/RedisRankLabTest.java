@@ -24,7 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.math.BigDecimal;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
 
 public class RedisRankLabTest extends BaseSpringIntegrationTest {
     @Autowired
@@ -58,13 +58,13 @@ public class RedisRankLabTest extends BaseSpringIntegrationTest {
         redisComponent.del(rankOptKey);
     }
 
-    @Ignore
+//    @Ignore
     @Test
     public void testRankNo() {
         // 测试的次数
-        final int testCount = 1000;
+        final int testCount = 100;
         // 同分值member数
-        final int memberCount = 50;
+        final int memberCount = 4;
 
         final String rankName = "testSameScoreRankNo";
         final String rankKey = redisRankLab.getRankKey(rankName);
@@ -108,7 +108,7 @@ public class RedisRankLabTest extends BaseSpringIntegrationTest {
                 }
             }
 
-            System.out.println(redisRankLab.getRankList(rankName, 1, 3));
+            System.out.println(redisRankLab.getRankList(rankName, 1, memberCount));
         }
 
         redisComponent.del(rankKey);
@@ -214,5 +214,142 @@ public class RedisRankLabTest extends BaseSpringIntegrationTest {
                 throw ex;
             }
         }
+    }
+
+    @Test
+    public void testRangeIncludeZeroAndExcludeOne() {
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(1.1));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(1.01));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(1.001));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(1.0001));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(1.00001));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(1.000001));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(1.0000001));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(1.0000001));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(1.00000001));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(1.000000001));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(1));
+
+        assertTrue(RedisRankLab.rangeIncludeZeroAndExcludeOne(0.999999999));
+        assertTrue(RedisRankLab.rangeIncludeZeroAndExcludeOne(0.99999999));
+        assertTrue(RedisRankLab.rangeIncludeZeroAndExcludeOne(0.9999999));
+        assertTrue(RedisRankLab.rangeIncludeZeroAndExcludeOne(0.999999));
+        assertTrue(RedisRankLab.rangeIncludeZeroAndExcludeOne(0.99999));
+        assertTrue(RedisRankLab.rangeIncludeZeroAndExcludeOne(0.9999));
+        assertTrue(RedisRankLab.rangeIncludeZeroAndExcludeOne(0.999));
+        assertTrue(RedisRankLab.rangeIncludeZeroAndExcludeOne(0.99));
+        assertTrue(RedisRankLab.rangeIncludeZeroAndExcludeOne(0.9));
+        assertTrue(RedisRankLab.rangeIncludeZeroAndExcludeOne(0.1));
+        assertTrue(RedisRankLab.rangeIncludeZeroAndExcludeOne(0.01));
+        assertTrue(RedisRankLab.rangeIncludeZeroAndExcludeOne(0.001));
+        assertTrue(RedisRankLab.rangeIncludeZeroAndExcludeOne(0.0001));
+        assertTrue(RedisRankLab.rangeIncludeZeroAndExcludeOne(0.00001));
+        assertTrue(RedisRankLab.rangeIncludeZeroAndExcludeOne(0.000001));
+        assertTrue(RedisRankLab.rangeIncludeZeroAndExcludeOne(0.0000001));
+        assertTrue(RedisRankLab.rangeIncludeZeroAndExcludeOne(0.00000001));
+        assertTrue(RedisRankLab.rangeIncludeZeroAndExcludeOne(0.00000001));
+        assertTrue(RedisRankLab.rangeIncludeZeroAndExcludeOne(0.000000001));
+
+        assertTrue(RedisRankLab.rangeIncludeZeroAndExcludeOne(0));
+
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(-0.000000001));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(-0.00000001));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(-0.0000001));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(-0.000001));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(-0.00001));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(-0.0001));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(-0.001));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(-0.01));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(-0.1));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(-0.9));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(-0.99));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(-0.999));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(-0.9999));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(-0.99999));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(-0.999999));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(-0.9999999));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(-0.99999999));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(-0.999999999));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(-1));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(-1.1));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(-1.01));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(-1.001));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(-1.0001));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(-1.00001));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(-1.000001));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(-1.0000001));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(-1.0000001));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(-1.00000001));
+        assertFalse(RedisRankLab.rangeIncludeZeroAndExcludeOne(-1.000000001));
+    }
+
+    @Test
+    public void testRangeExcludeNegativeOneAndIncludeZero() {
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(1.1));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(1.01));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(1.001));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(1.0001));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(1.00001));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(1.000001));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(1.0000001));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(1.0000001));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(1.00000001));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(1.000000001));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(1));
+
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(0.999999999));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(0.99999999));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(0.9999999));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(0.999999));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(0.99999));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(0.9999));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(0.999));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(0.99));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(0.9));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(0.1));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(0.01));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(0.001));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(0.0001));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(0.00001));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(0.000001));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(0.0000001));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(0.00000001));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(0.00000001));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(0.000000001));
+
+        assertTrue(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(0));
+
+        assertTrue(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-0.1));
+        assertTrue(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-0.01));
+        assertTrue(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-0.001));
+        assertTrue(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-0.0001));
+        assertTrue(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-0.00001));
+        assertTrue(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-0.000001));
+        assertTrue(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-0.0000001));
+        assertTrue(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-0.00000001));
+        assertTrue(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-0.000000001));
+        assertTrue(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-0.0000000001));
+        assertTrue(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-0.9));
+        assertTrue(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-0.99));
+        assertTrue(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-0.999));
+        assertTrue(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-0.9999));
+        assertTrue(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-0.99999));
+        assertTrue(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-0.999999));
+        assertTrue(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-0.9999999));
+        assertTrue(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-0.99999999));
+        assertTrue(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-0.999999999));
+        assertTrue(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-0.9999999999));
+
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-1));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-1.1));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-1.01));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-1.001));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-1.0001));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-1.00001));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-1.000001));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-1.0000001));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-1.0000001));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-1.00000001));
+        assertFalse(RedisRankLab.rangeExcludeNegativeOneAndIncludeZero(-1.000000001));
     }
 }
