@@ -80,7 +80,18 @@ public class RankWeightComponent {
      * @return 0~65534
      */
     public long offerCircular(String rankName) {
-        return offer(getKey(rankName)) & DEFAULT_CIRCULAR_LIMIT;
+        return offer(rankName) & DEFAULT_CIRCULAR_LIMIT;
+    }
+
+    /**
+     * 提供一个周期性的权重值。
+     *
+     * @param rankName
+     * @param circularLimit
+     * @return 0~(circularLimit-1)
+     */
+    public long offerCircular(String rankName, long circularLimit) {
+        return offer(rankName) % circularLimit;
     }
 
     static String getKey(String rankName) {
