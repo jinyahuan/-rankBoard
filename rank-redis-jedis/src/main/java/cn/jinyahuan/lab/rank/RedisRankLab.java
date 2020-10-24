@@ -43,9 +43,13 @@ public class RedisRankLab {
 
     /**
      * <p>由于 zset 中 score 是以双精度的浮点数存储，相当于 java 中的{@link Double}。
+     *
      * <p>所以当{@code score}值过大时，分值会变得不太精确，且权重也会变得不稳定（即同分值排名），建议不大于{@code 1L << 52}。
+     *
      * <p>所以当{@code weight}数值过大时，可能会进入到分值，建议保留第一位精度(0.0xxx...)，也就是实际精度的设置比待设置的精度大1。
-     * <p>所以当{@code weight}位数过多时，可能会丢失进度，从而导致权重变得不稳定（即同分值排名），建议不大于{@code 1L << 61}。
+     *
+     * <p>所以当{@code weight}位数过多时，可能会丢失进度，从而导致权重变得不稳定，
+     * 建议位数小于16位(其中1位保留，即15位为有效权重值，0.0xxxxxxxxxxxxxxx)。
      *
      * @param rankName
      * @param memberName
@@ -180,5 +184,10 @@ public class RedisRankLab {
             diff = oldRankScoreTemp - (long) oldRankScoreTemp;
         }
         return diff;
+    }
+
+    public static void main(String[] args) {
+        System.out.println(1L << 52);
+        System.out.println(Long.MAX_VALUE);
     }
 }
