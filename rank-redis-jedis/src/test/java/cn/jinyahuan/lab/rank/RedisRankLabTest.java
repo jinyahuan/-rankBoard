@@ -23,8 +23,6 @@ import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.Collections;
 
 import static org.junit.Assert.assertEquals;
@@ -49,9 +47,7 @@ public class RedisRankLabTest extends BaseSpringIntegrationTest {
         redisComponent.del(rankOptKey);
 
         String memberName1 = "jin_1";
-        LocalDateTime dateTime = LocalDateTime.now();
-        BigDecimal finalWeight1 = RankWeightUtils.computeWeight(dateTime.toInstant(ZoneId.systemDefault().getRules().getOffset(dateTime)).toEpochMilli(), faultDecimalPlaces);
-        assertEquals(score, redisRankLab.joinRank(rankName, memberName1, score, finalWeight1));
+        assertEquals(score, redisRankLab.joinRank(rankName, memberName1, score, BigDecimal.ZERO));
         redisComponent.del(rankKey);
 
         String memberName2 = "jin_2";
@@ -66,33 +62,50 @@ public class RedisRankLabTest extends BaseSpringIntegrationTest {
     @Ignore
     @Test
     public void testRankNo() {
+        // 测试的次数
+        final int testCount = 1000;
+        // 同分值member数
+        final int memberCount = 50;
+
         final String rankName = "testSameScoreRankNo";
         final String rankKey = redisRankLab.getRankKey(rankName);
         final String rankOptKey = rankWeightComponent.getKey(rankName);
-        final Long score = 1L << 52;
+        final Long incrementScore = 1L;
+        final Long initScore = ((long) Integer.MAX_VALUE) - (incrementScore * testCount);
 
         redisComponent.del(rankKey);
         redisComponent.del(rankOptKey);
 
-        final long initWeightValue = 1L << 62;
+        final long initWeightValue = 99_999 - (testCount * memberCount);
         rankWeightComponent.init(rankName, initWeightValue);
         assertEquals(initWeightValue, rankWeightComponent.peek(rankName));
 
-        final int testCount = 100;
-        final int memberCount = 5;
         for (int i = 0; i < testCount; i++) {
+            // 第一次进行初始化
             if (i == 0) {
-                for (int j = 0; j < memberCount; j++) {
-                    long weight = rankWeightComponent.offer(rankName);
+                for (int j = 1; j <= memberCount; j++) {
+                    long weight = rankWeightComponent.offerCircular(rankName);
                     BigDecimal finalWeight = RankWeightUtils.computeWeight(weight, 1);
-                    redisRankLab.joinRank(rankName, "m" + j, score, finalWeight);
+                    redisRankLab.joinRank(rankName, "m" + j, initScore, finalWeight);
                 }
             }
+            // 非第一次循环进行累加
             else {
-                for (int j = 0; j < memberCount; j++) {
-                    long rankOptNum = rankWeightComponent.offer(rankName);
-                    BigDecimal finalWeight = RankWeightUtils.computeWeight(rankOptNum, 1);
-                    redisRankLab.joinRank(rankName, "m" + j, 1, finalWeight);
+                // 偶数正向加
+                if ((i & 1) == 0) {
+                    for (int j = 1; j <= memberCount; j++) {
+                        long weight = rankWeightComponent.offerCircular(rankName);
+                        BigDecimal finalWeight = RankWeightUtils.computeWeight(weight, 1);
+                        redisRankLab.joinRank(rankName, "m" + j, incrementScore, finalWeight);
+                    }
+                }
+                // 奇数反向加
+                else {
+                    for (int j = memberCount; j > 0; j--) {
+                        long weight = rankWeightComponent.offerCircular(rankName);
+                        BigDecimal finalWeight = RankWeightUtils.computeWeight(weight, 1);
+                        redisRankLab.joinRank(rankName, "m" + j, incrementScore, finalWeight);
+                    }
                 }
             }
 

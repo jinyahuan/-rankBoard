@@ -44,17 +44,20 @@ public class RedisRankLab {
     /**
      * <p>由于 zset 中 score 是以双精度的浮点数存储，相当于 java 中的{@link Double}。
      *
-     * <p>所以当{@code score}值过大时，分值会变得不太精确，且权重也会变得不稳定（即同分值排名），建议不大于{@code 1L << 52}。
+     * <p>当{@code score}值过大时，分值会变得不太精确，且权重也会变得不稳定（即同分值排名）。
      *
-     * <p>所以当{@code weight}数值过大时，可能会进入到分值，建议保留第一位精度(0.0xxx...)，也就是实际精度的设置比待设置的精度大1。
+     * <p>当{@code weight}数值过大时，可能会进入到分值，建议保留第一位精度(0.0xxx...)，也就是实际精度的设置比待设置的精度大1。
      *
-     * <p>所以当{@code weight}位数过多时，可能会丢失进度，从而导致权重变得不稳定，
-     * 建议位数小于16位(其中1位保留，即15位为有效权重值，0.0xxxxxxxxxxxxxxx)。
+     * <p>当{@code weight}位数过多时，可能会丢失进度，从而导致权重变得不稳定，
+     * 建议位数小于16位(其中1位保留，即15位为有效权重值，0.0xxxxxxxxxxxxxxx)，实测那15个x小于{@code 1L << 33}时很稳定。
+     *
+     * <p>建议总数位14位进行自行设计分值位数及权重位数。当需要权重时，建议至少2位（其中1位位保留精度位，即0.0x）。
+     * 推荐分值位9位(值小于2^31-1也行)，权重位6位（权重需要循环使用了），经测试很稳定。
      *
      * @param rankName
      * @param memberName
      * @param score      分值
-     * @param weight     同分时排名的权重，值为大于0且小于1的小数
+     * @param weight     同分时排名的权重，取值范围为(-1,1)
      * @return 上一次的分值：
      * {@code null}, if rank not exist or {@code member} not in rank;
      * otherwise return {@code member} real rank score
@@ -64,16 +67,19 @@ public class RedisRankLab {
 
         final String rankKey = getRankKey(rankName);
 
-        // 需要加上的分值（真实分值+权重值）
-        BigDecimal additiveScore = BigDecimal.valueOf(score).add(weight);
-
-        final double oldScoreWeight = getScoreWeight(getRankScore(rankName, memberName));
-        // 扣除上一次的分值的权重
-        if (oldScoreWeight > 0) {
-            additiveScore = additiveScore.subtract(BigDecimal.valueOf(oldScoreWeight));
+        double finalAdditiveScore = (double) score;
+        if (weight.doubleValue() != 0) {
+            BigDecimal dScore = BigDecimal.valueOf(score).add(weight);
+            final double oldScoreWeight = getScoreWeight(getRankScore(rankName, memberName));
+            // 扣除上一次的分值的权重
+            if (oldScoreWeight > 0) {
+                // 需要加上的分值（真实分值+权重值）
+                dScore = dScore.subtract(BigDecimal.valueOf(oldScoreWeight));
+            }
+            finalAdditiveScore = dScore.doubleValue();
         }
 
-        Double totalScore = redisComponent.zIncrBy(rankKey, memberName, additiveScore.doubleValue());
+        Double totalScore = redisComponent.zIncrBy(rankKey, memberName, finalAdditiveScore);
         return Objects.isNull(totalScore) ? null : totalScore.longValue();
     }
 
@@ -131,7 +137,7 @@ public class RedisRankLab {
             for (RedisZSetCommands.Tuple item : rank) {
                 String memberName = new String(item.getValue());
                 String score = new BigDecimal(item.getScore().toString())
-                        .setScale(RankWeightUtils.getDefaultDecimalPlaces(), DEFAULT_ROUNDING_MODE)
+//                        .setScale(RankWeightUtils.getDefaultDecimalPlaces(), DEFAULT_ROUNDING_MODE)
                         .toPlainString();
 
                 Map<String, Object> eRank = new HashMap<>(4);
@@ -165,7 +171,7 @@ public class RedisRankLab {
         Objects.requireNonNull(weight, "weight must not be null");
 
         final double dWeight = weight.doubleValue();
-        if (!((dWeight > 0 && dWeight < 1) || (dWeight < 0 && dWeight > -1))) {
+        if (!((dWeight >= 0 && dWeight < 1) || (dWeight < 0 && dWeight > -1))) {
             throw new IllegalArgumentException("weight value range must in [-1 < weight < 1]");
         }
     }
@@ -184,10 +190,5 @@ public class RedisRankLab {
             diff = oldRankScoreTemp - (long) oldRankScoreTemp;
         }
         return diff;
-    }
-
-    public static void main(String[] args) {
-        System.out.println(1L << 52);
-        System.out.println(Long.MAX_VALUE);
     }
 }

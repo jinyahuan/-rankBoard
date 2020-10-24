@@ -23,12 +23,19 @@ import org.springframework.stereotype.Component;
 import java.util.Objects;
 
 /**
+ * 排行榜的权重组件，
+ *
  * @author JinYahuan
  * @since 1.0.0
  */
 @Component
 public class RankWeightComponent {
     static final String KEY_TEMPLATE_WEIGHT = RedisRankLab.KEY_RANK_PREFIX + "%s:weight";
+
+    /**
+     * 周期性权重值的最大值。
+     */
+    static final int DEFAULT_CIRCULAR_LIMIT = (1 << 16) - 1;
 
     @Autowired
     private RedisComponent redisComponent;
@@ -64,6 +71,16 @@ public class RankWeightComponent {
      */
     public long offer(String rankName) {
         return redisComponent.incr(getKey(rankName));
+    }
+
+    /**
+     * 提供一个周期性的权重值。
+     *
+     * @param rankName
+     * @return 0~65534
+     */
+    public long offerCircular(String rankName) {
+        return offer(getKey(rankName)) & DEFAULT_CIRCULAR_LIMIT;
     }
 
     static String getKey(String rankName) {
