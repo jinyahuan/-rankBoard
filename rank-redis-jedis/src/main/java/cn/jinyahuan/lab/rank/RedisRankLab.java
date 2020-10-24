@@ -17,11 +17,11 @@
 package cn.jinyahuan.lab.rank;
 
 import cn.jinyahuan.common.redis.component.impl.RedisComponent;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.connection.RedisZSetCommands;
 import org.springframework.stereotype.Component;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.*;
@@ -61,6 +61,8 @@ public class RedisRankLab {
      * @return 上一次的分值：
      * {@code null}, if rank not exist or {@code member} not in rank;
      * otherwise return {@code member} real rank score
+     * @throws NullPointerException
+     * @throws IllegalArgumentException
      */
     public Long joinRank(String rankName, String memberName, long score, BigDecimal weight) {
         checkParamsForJoinRank(rankName, memberName, score, weight);
@@ -69,11 +71,12 @@ public class RedisRankLab {
 
         double finalAdditiveScore = (double) score;
         if (weight.doubleValue() != 0) {
+            // 需要加上的分值（真实分值+权重值）
             BigDecimal dScore = BigDecimal.valueOf(score).add(weight);
-            final double oldScoreWeight = getScoreWeight(getRankScore(rankName, memberName));
-            // 扣除上一次的分值的权重
+
+            final double oldScoreWeight = getScoreWeight(doGetRankScore(rankName, memberName));
             if (oldScoreWeight > 0) {
-                // 需要加上的分值（真实分值+权重值）
+                // 扣除上一次的分值的权重
                 dScore = dScore.subtract(BigDecimal.valueOf(oldScoreWeight));
             }
             finalAdditiveScore = dScore.doubleValue();
@@ -84,10 +87,57 @@ public class RedisRankLab {
     }
 
     /**
+     * 获取{@code memberName}在{@code rankName}榜的分数。
+     *
+     * @param rankName   null return null
+     * @param memberName null or empty return null
+     * @return {@code null}, if rank not exist or {@code memberName} not in rank list;
+     * otherwise return {@code memberName} rank score
+     * @throws NullPointerException
+     */
+    public Long getRankScore(String rankName, String memberName) {
+        Double score = doGetRankScore(rankName, memberName);
+        return Objects.isNull(score) ? null : score.longValue();
+    }
+
+    /**
+     * 获取{@code member}在{@code rankName}榜的排名。
+     *
+     * @param rankName   null return null
+     * @param memberName null or empty return null
+     * @return {@code null}, if rank not exist or {@code memberName} not in rank list;
+     * otherwise return {@code memberName} real rank number
+     * @throws NullPointerException
+     */
+    public Long getRankNumber(String rankName, String memberName) {
+        Objects.requireNonNull(rankName, "rankName must not be null");
+        Objects.requireNonNull(memberName, "memberName must not be null");
+
+        Long rankNum = redisComponent.zRevrank(getRankKey(rankName), memberName);
+        return Objects.isNull(rankNum) ? null : rankNum + 1;
+    }
+
+    /**
+     * 获取排行榜。
+     *
+     * @param rankName
+     * @param start    查询的排行榜开始的名次，从1开始
+     * @param end      查询的排行榜结束的名次
+     * @return
+     */
+    public List<RankMember> getRankList(String rankName, int start, int end) {
+        Objects.requireNonNull(rankName, "rankName must not be null");
+
+        Set<RedisZSetCommands.Tuple> rank = redisComponent.zRevRangeWithScores(
+                getRankKey(rankName),
+                start - 1,
+                end - 1
+        );
+        return mappingForRankList(rank);
+    }
+
+    /**
      * 获取{@code member}在{@code rankName}榜的分数。
-     * <p>
-     * 注意：有个副作用，当 score 为负数时，返回 0。
-     * </p>
      *
      * @param rankName   null return null
      * @param memberName null or empty return null
@@ -95,62 +145,10 @@ public class RedisRankLab {
      * otherwise return {@code member} rank score
      * @throws NullPointerException
      */
-    public Double getRankScore(String rankName, String memberName) {
+    Double doGetRankScore(String rankName, String memberName) {
         Objects.requireNonNull(rankName, "rankName must not be null");
         Objects.requireNonNull(memberName, "memberName must not be null");
         return redisComponent.zScore(getRankKey(rankName), memberName);
-    }
-
-    /**
-     * 获取{@code member}在{@code rankName}榜的排名。
-     *
-     * @param rankName null return null
-     * @param member   null or empty return null
-     * @return {@code null}, if params is null; {@code -1}, if rank not exist or {@code member} not in rank;
-     * otherwise return {@code member} real rank number
-     */
-    public Long getRankNumber(String rankName, String member) {
-        String key = getRankKey(rankName);
-        if (Objects.isNull(key) || StringUtils.isEmpty(member)) {
-            return null;
-        }
-        Long rankNum = redisComponent.zRevrank(key, member);
-        return Objects.nonNull(rankNum) ? rankNum + 1 : -1;
-    }
-
-    /**
-     * @param rankName
-     * @param start    查询的排行榜开始的名次，从1开始
-     * @param end      查询的排行榜结束的名次
-     * @return
-     */
-    public List<Map<String, Object>> getRanks(String rankName, int start, int end) {
-        String key = getRankKey(rankName);
-        if (Objects.isNull(key)) {
-            return Collections.EMPTY_LIST;
-        }
-
-        Set<RedisZSetCommands.Tuple> rank = redisComponent.zRevRangeWithScores(key, start - 1, end - 1);
-        if (Objects.nonNull(rank) && !rank.isEmpty()) {
-            List<Map<String, Object>> resultList = new ArrayList<>(rank.size() + 1);
-
-            for (RedisZSetCommands.Tuple item : rank) {
-                String memberName = new String(item.getValue());
-                String score = new BigDecimal(item.getScore().toString())
-//                        .setScale(RankWeightUtils.getDefaultDecimalPlaces(), DEFAULT_ROUNDING_MODE)
-                        .toPlainString();
-
-                Map<String, Object> eRank = new HashMap<>(4);
-                eRank.put("member", memberName);
-                eRank.put("score", score);
-                resultList.add(eRank);
-            }
-            return resultList;
-
-        }
-        else {
-            return Collections.EMPTY_LIST;
-        }
     }
 
     static String getRankKey(String rankName) {
@@ -190,5 +188,77 @@ public class RedisRankLab {
             diff = oldRankScoreTemp - (long) oldRankScoreTemp;
         }
         return diff;
+    }
+
+    private static List<RankMember> mappingForRankList(Set<RedisZSetCommands.Tuple> rank) {
+        if (Objects.nonNull(rank) && !rank.isEmpty()) {
+            List<RankMember> resultList = new ArrayList<>(rank.size());
+            for (RedisZSetCommands.Tuple item : rank) {
+                String memberName = new String(item.getValue());
+                Long score = item.getScore().longValue();
+
+                resultList.add(new RankMember(memberName, score));
+            }
+            return resultList;
+        }
+        else {
+            return Collections.EMPTY_LIST;
+        }
+    }
+
+    public static class RankMember implements Serializable {
+        private static final long serialVersionUID = 1L;
+
+        private String name;
+        private Long score;
+
+        public RankMember() {}
+
+        public RankMember(String name, Long score) {
+            this.name = name;
+            this.score = score;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public Long getScore() {
+            return score;
+        }
+
+        public void setScore(Long score) {
+            this.score = score;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            RankMember that = (RankMember) o;
+            return name.equals(that.name) &&
+                    score.equals(that.score);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(name, score);
+        }
+
+        @Override
+        public String toString() {
+            return "RankMember{" +
+                    "name='" + name + '\'' +
+                    ", score=" + score +
+                    '}';
+        }
     }
 }

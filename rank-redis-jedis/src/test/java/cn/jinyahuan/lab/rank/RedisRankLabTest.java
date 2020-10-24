@@ -23,7 +23,6 @@ import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.math.BigDecimal;
-import java.util.Collections;
 
 import static org.junit.Assert.assertEquals;
 
@@ -109,7 +108,7 @@ public class RedisRankLabTest extends BaseSpringIntegrationTest {
                 }
             }
 
-            System.out.println(redisRankLab.getRanks(rankName, 1, 10));
+            System.out.println(redisRankLab.getRankList(rankName, 1, 3));
         }
 
         redisComponent.del(rankKey);
@@ -139,13 +138,11 @@ public class RedisRankLabTest extends BaseSpringIntegrationTest {
         redisComponent.del(rankKey);
         redisComponent.del(rankOptKey);
 
-        assertEquals(new Long(-1), redisRankLab.getRankNumber(rankName, memberName));
+        assertEquals(null, redisRankLab.getRankNumber(rankName, memberName));
     }
 
     @Test
     public void testGetRanks() {
-        assertEquals(Collections.EMPTY_LIST, redisRankLab.getRanks(null, 1, 10));
-
         final String rankName = "ranks";
         final String rankKey = redisRankLab.getRankKey(rankName);
         final String rankOptKey = rankWeightComponent.getKey(rankName);
@@ -171,8 +168,8 @@ public class RedisRankLabTest extends BaseSpringIntegrationTest {
         redisRankLab.joinRank(rankName, memberName3, score, weight3);
 
         assertEquals(
-                "[{member=jin_3, score=100.00}, {member=jin_2, score=100.00}, {member=jin_1, score=100.00}]",
-                redisRankLab.getRanks(rankName, 1, 10) + "");
+                "[RankMember{name='jin_3', score=100}, RankMember{name='jin_2', score=100}, RankMember{name='jin_1', score=100}]",
+                redisRankLab.getRankList(rankName, 1, 10) + "");
 
         redisComponent.del(rankKey);
         redisComponent.del(rankOptKey);
